@@ -123,7 +123,11 @@ class Chef
           end
         end
 
-        @session ||= Net::SSH::Multi.start(:concurrent_connections => config[:concurrency], :on_error => ssh_error_handler)
+        if Chef::Config[:local_mode]
+          @session ||= Net::SSH.start(name_args[0], configure_user)
+        else
+          @session ||= Net::SSH::Multi.start(:concurrent_connections => config[:concurrency], :on_error => ssh_error_handler)
+        end
       end
 
       def configure_gateway
@@ -218,7 +222,7 @@ class Chef
             session_opts[:user_known_hosts_file] = "/dev/null"
           end
 
-          session.use(hostspec, session_opts)
+          session.use(hostspec, session_opts) unless Chef::Config[:local_mode]
 
           @longest = host.length if host.length > @longest
         end
@@ -258,14 +262,26 @@ class Chef
         subsession ||= session
         command = fixup_sudo(command)
         command.force_encoding('binary') if command.respond_to?(:force_encoding)
+        if Chef::Config[:local_mode]
+          session.forward.remote(8889, "127.0.0.1", 8889)
+          session.loop
+        end
         subsession.open_channel do |ch|
           ch.request_pty
           ch.exec command do |ch, success|
             raise ArgumentError, "Cannot execute #{command}" unless success
             ch.on_data do |ichannel, data|
-              print_data(ichannel[:host], data)
+              if Chef::Config[:local_mode]
+                print_data(ichannel.connection.host, data)
+              else
+                print_data(ichannel[:host], data)
+              end
               if data =~ /^knife sudo password: /
-                print_data(ichannel[:host], "\n")
+                if Chef::Config[:local_mode]
+                  print_data(ichannel.connection.host, "\n")
+                else
+                  print_data(ichannel[:host], "\n")
+                end
                 ichannel.send_data("#{get_password}\n")
               end
             end
