@@ -1,0 +1,14 @@
+---
+general:
+  branches:
+    only:
+      - /localmode_circleci*/
+  artifacts:
+    - nodes/localhost.json
+machine:
+  ruby:
+    version: 2.1.4
+test:
+  override:
+    - rvmsudo bundle exec chef-client -z
+    - grep ohai_time nodes/localhost.json
