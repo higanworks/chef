@@ -146,8 +146,15 @@ class Chef
       option :first_boot_attributes,
         :short => "-j JSON_ATTRIBS",
         :long => "--json-attributes",
-        :description => "A JSON string to be added to the first run of chef-client",
-        :proc => lambda { |o| Chef::JSONCompat.parse(o) },
+        :description => "A JSON string or file to be added to the first run of chef-client",
+        :proc => lambda { |o|
+          begin
+            Chef::JSONCompat.parse(o)
+          rescue Chef::Exceptions::JSON::ParseError => e
+            return Chef::JSONCompat.parse(File.read(o)) if File.exists?(o)
+            raise Chef::Exceptions::JSON::ParseError, "No such file `#{o}` and #{e.message}"
+          end
+        },
         :default => {}
 
       option :host_key_verify,
@@ -317,10 +324,10 @@ class Chef
         if chef_vault_handler.doing_chef_vault? || 
             (Chef::Config[:validation_key] && !File.exist?(File.expand_path(Chef::Config[:validation_key])))
 
-          unless config[:chef_node_name]
-            ui.error("You must pass a node name with -N when bootstrapping with user credentials")
-            exit 1
-          end
+#          unless config[:chef_node_name]
+#            ui.error("You must pass a node name with -N when bootstrapping with user credentials")
+#            exit 1
+#          end
 
           client_builder.run
 
