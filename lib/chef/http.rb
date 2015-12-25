@@ -88,6 +88,7 @@ class Chef
       @redirects_followed = 0
       @redirect_limit = 10
       @options = options
+      @mutex = Mutex.new
 
       @middlewares = []
       self.class.middlewares.each do |middleware_class|
@@ -202,7 +203,7 @@ class Chef
         # PERFORMANCE CRITICAL: *MUST* lazy require here otherwise we load up webrick
         # via chef-zero and that hits DNS (at *require* time) which may timeout,
         # when for most knife/chef-client work we never need/want this loaded.
-        Thread.exclusive {
+        @mutex.synchronize {
           unless defined?(SocketlessChefZeroClient)
             require 'chef/http/socketless_chef_zero_client'
           end
