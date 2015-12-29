@@ -159,6 +159,7 @@ class Chef
       @default_guard_interpreter = :default
       @elapsed_time = 0
       @sensitive = false
+      @mutex = Mutex.new
     end
 
     #
